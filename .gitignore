@@ -1,8 +1,11 @@
+*.bin
+*.dix
 *.in
 *.in~
 *.la
 *.lo
 *.o
+*.out
 *.pc
 *.pyc
 

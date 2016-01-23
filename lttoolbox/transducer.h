@@ -334,6 +334,16 @@ public:
                                Alphabet const &alphabet,
                                int const epsilon_tag = 0);
 
+  void appendNode(
+      const std::multimap<int, int>::const_iterator &SourceStateTransition,
+      Transducer &TargetTransducer, const int &TargetTransducerSourceState,
+      Alphabet &TargetTransducerAlphabet, const int &Epsilon = 0) const;
+
+  void appendAtSign(Transducer &TargetTransducer,
+                    const int &TargetTransducerSourceState,
+                    Alphabet &TargetTransducerAlphabet,
+                    const int &Epsilon = 0) const;
+
   /**
    * Intersects two finite-state transducers
    *
@@ -347,10 +357,13 @@ public:
    * @return the trimmed transducer
    */
   Transducer intersect(Transducer &t,
-                       Alphabet const &my_a,
-                       Alphabet const &t_a,
+                       Alphabet &my_a,
+                       Alphabet &t_a,
                        int const epsilon_tag = 0);
 
 };
+
+bool operator<(const std::multimap<int, int>::const_iterator &a_,
+               const std::multimap<int, int>::const_iterator &b_);
 
 #endif

@@ -952,11 +952,53 @@ Transducer::moveLemqsLast(Alphabet const &alphabet,
   return new_t;
 }
 
+void Transducer::appendNode(
+    const std::multimap<int, int>::const_iterator &SourceStateTransition,
+    Transducer &TargetTransducer, const int &TargetTransducerSourceState,
+    Alphabet &TargetTransducerAlphabet, const int &Epsilon) const {
+  const int TargetTransducerTargetState = TargetTransducer.newState();
+  TargetTransducer.linkStates(TargetTransducerSourceState,
+                              TargetTransducerTargetState,
+                              SourceStateTransition->first);
+
+  if (isFinal(SourceStateTransition->second)) {
+    appendAtSign(TargetTransducer, TargetTransducerTargetState,
+                 TargetTransducerAlphabet, Epsilon);
+    return;
+  }
+
+  for (std::multimap<int, int>::const_iterator TargetStateTransition =
+           transitions.at(SourceStateTransition->second).begin();
+       TargetStateTransition !=
+           transitions.at(SourceStateTransition->second).end();
+       ++TargetStateTransition) {
+    appendNode(TargetStateTransition, TargetTransducer,
+               TargetTransducerTargetState, TargetTransducerAlphabet, Epsilon);
+  }
+}
+
+void Transducer::appendAtSign(Transducer &TargetTransducer,
+                              const int &TargetTransducerSourceState,
+                              Alphabet &TargetTransducerAlphabet,
+                              const int &Epsilon) const {
+  const int TargetTransducerTargetState = TargetTransducer.newState();
+  TargetTransducerAlphabet.includeSymbol(L"@");
+  TargetTransducer.linkStates(
+      TargetTransducerSourceState, TargetTransducerTargetState,
+      TargetTransducerAlphabet(TargetTransducerAlphabet(L""),
+                               TargetTransducerAlphabet(L"@")));
+  TargetTransducer.finals.insert(TargetTransducerTargetState);
+}
+
+bool operator<(const std::multimap<int, int>::const_iterator &a_,
+               const std::multimap<int, int>::const_iterator &b_) {
+  return true;
+}
 
 Transducer
 Transducer::intersect(Transducer &trimmer,
-  Alphabet const &this_a,
-  Alphabet const &trimmer_a,
+  Alphabet &this_a,
+  Alphabet &trimmer_a,
   int const epsilon_tag)
 {
   joinFinals(epsilon_tag);
@@ -1005,6 +1047,7 @@ Transducer::intersect(Transducer &trimmer,
       exit(EXIT_FAILURE);
     }
     int trimmed_src = states_this_trimmed[make_pair(this_src, trimmer_src)];
+    std::set<std::pair<int, int> > Transitions_eq_IntersectorTransitions;
 
     // First loop through _epsilon_ transitions of trimmer
     for(multimap<int, int>::iterator trimmer_trans_it = trimmer.transitions.at(trimmer_src).begin(),
@@ -1070,6 +1113,7 @@ Transducer::intersect(Transducer &trimmer,
         trimmed.linkStates(trimmed_src, // fromState
                            trimmed_trg, // toState
                            this_label); // symbol-pair, using this alphabet
+        Transitions_eq_IntersectorTransitions.insert(*trans_it);
       }
       else if ( this_right == compoundOnlyLSymbol
                 || this_right == compoundRSymbol
@@ -1097,6 +1141,7 @@ Transducer::intersect(Transducer &trimmer,
         trimmed.linkStates(trimmed_src, // fromState
                            trimmed_trg, // toState
                            this_label); // symbol-pair, using this alphabet
+        Transitions_eq_IntersectorTransitions.insert(*trans_it);
       }
       else
       {
@@ -1141,10 +1186,19 @@ Transducer::intersect(Transducer &trimmer,
             trimmed.linkStates(trimmed_src, // fromState
                                trimmed_trg, // toState
                                this_label); // symbol-pair, using this alphabet
+            Transitions_eq_IntersectorTransitions.insert(*trans_it);
           }
         } // end loop arcs from trimmer_src
       } // end if JOIN else
     } // end loop arcs from this_src
+
+    for (std::multimap<int, int>::const_iterator Transition_ =
+             transitions.at(this_src).begin();
+         Transition_ != transitions.at(this_src).end(); ++Transition_) {
+      if (Transitions_eq_IntersectorTransitions.find(*Transition_) ==
+          Transitions_eq_IntersectorTransitions.end())
+        appendNode(Transition_, trimmed, trimmed_src, this_a);
+    }
   } // end while todo
 
   for(map<std::pair<int, int>, int >::iterator it = states_this_trimmed.begin(),
