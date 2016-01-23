@@ -78,70 +78,64 @@ read_fst(FILE *bin_file)
 }
 
 std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> >
-trim(FILE *file_mono, FILE *file_bi)
-{
-  std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> > alph_trans_mono = read_fst(file_mono);
-  Alphabet alph_mono = alph_trans_mono.first.first;
-  std::map<wstring, Transducer> trans_mono = alph_trans_mono.second;
-  std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> > alph_trans_bi = read_fst(file_bi);
-  Alphabet alph_bi = alph_trans_bi.first.first;
-  std::map<wstring, Transducer> trans_bi = alph_trans_bi.second;
+trim(FILE *file_mono, FILE *file_bi) {
+  std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> >
+      alph_trans_mono = read_fst(file_mono);
+  std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> >
+      alph_trans_bi = read_fst(file_bi);
 
   // The prefix transducer is the union of all transducers from bidix,
   // with a ".*" appended
   Transducer union_transducer;
   // The "." in ".*" is a set of equal pairs of the output symbols
   // from the monodix alphabet (<n>:<n> etc.)
-  Alphabet alph_prefix = alph_bi;
-  set<int> loopback_symbols;    // ints refer to alph_prefix
-  alph_prefix.createLoopbackSymbols(loopback_symbols, alph_mono, Alphabet::right);
+  set<int> loopback_symbols; // ints refer to alph_trans_bi.first.first
+  alph_trans_bi.first.first.createLoopbackSymbols(
+      loopback_symbols, alph_trans_mono.first.first, Alphabet::right);
 
-  for(std::map<wstring, Transducer>::iterator it = trans_bi.begin(); it != trans_bi.end(); it++)
-  {
+  for (std::map<wstring, Transducer>::iterator it =
+           alph_trans_bi.second.begin();
+       it != alph_trans_bi.second.end(); it++) {
     Transducer union_tmp = it->second;
-    if(union_transducer.isEmpty())
-    {
+    if (union_transducer.isEmpty()) {
       union_transducer = union_tmp;
-    }
-    else
-    {
-      union_transducer.unionWith(alph_bi, union_tmp);
+    } else {
+      union_transducer.unionWith(alph_trans_bi.first.first, union_tmp);
     }
   }
   union_transducer.minimize();
 
-  Transducer prefix_transducer = union_transducer.appendDotStar(loopback_symbols);
-  // prefix_transducer should _not_ be minimized (both useless and takes forever)
-  Transducer moved_transducer = prefix_transducer.moveLemqsLast(alph_prefix);
+  Transducer prefix_transducer =
+      union_transducer.appendDotStar(loopback_symbols);
+  // prefix_transducer should _not_ be minimized (both useless and takes
+  // forever)
+  Transducer moved_transducer =
+      prefix_transducer.moveLemqsLast(alph_trans_bi.first.first);
 
-
-  for(std::map<wstring, Transducer>::iterator it = trans_mono.begin(); it != trans_mono.end(); it++)
-  {
-    Transducer trimmed_tmp = it->second.intersect(moved_transducer,
-                                                  alph_mono,
-                                                  alph_prefix);
+  for (std::map<wstring, Transducer>::iterator it =
+           alph_trans_mono.second.begin();
+       it != alph_trans_mono.second.end(); it++) {
+    Transducer trimmed_tmp =
+        it->second.intersect(moved_transducer, alph_trans_mono.first.first,
+                             alph_trans_bi.first.first);
 
     wcout << it->first << " " << it->second.size();
     wcout << " " << it->second.numberOfTransitions() << endl;
-    if(it->second.numberOfTransitions() == 0)
-    {
-      wcerr << L"Warning: empty section! Skipping it ..."<<endl;
-      trans_mono[it->first].clear();
-    }
-    else if(trimmed_tmp.hasNoFinals()) {
-      wcerr << L"Warning: section had no final state after trimming! Skipping it ..."<<endl;
-      trans_mono[it->first].clear();
-    }
-    else {
+    if (it->second.numberOfTransitions() == 0) {
+      wcerr << L"Warning: empty section! Skipping it ..." << endl;
+      alph_trans_mono.second[it->first].clear();
+    } else if (trimmed_tmp.hasNoFinals()) {
+      wcerr << L"Warning: section had no final state after trimming! Skipping "
+               L"it ..." << endl;
+      alph_trans_mono.second[it->first].clear();
+    } else {
       trimmed_tmp.minimize();
-      trans_mono[it->first] = trimmed_tmp;
+      alph_trans_mono.second[it->first] = trimmed_tmp;
     }
   }
 
-  alph_trans_mono.second = trans_mono;
   return alph_trans_mono;
 }
-
 
 int main(int argc, char *argv[])
 {
