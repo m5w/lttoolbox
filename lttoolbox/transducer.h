@@ -360,9 +360,9 @@ public:
    * @param t_a the alphabet of the transducer t
    * @return the trimmed transducer
    */
-  Transducer intersect(Transducer &t,
+  Transducer intersect(const Transducer &t,
                        Alphabet &my_a,
-                       Alphabet &t_a,
+                       const Alphabet &t_a,
                        int const epsilon_tag = 0);
 
 };
