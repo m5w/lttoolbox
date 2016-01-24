@@ -952,6 +952,24 @@ Transducer::moveLemqsLast(Alphabet const &alphabet,
   return new_t;
 }
 
+void Transducer::insertEpsilonTransitionStates(const Alphabet &TheAlphabet,
+                                               std::set<int> &bi_dix_States,
+                                               const int &SourceState) const {
+  for (std::multimap<int, int>::const_iterator Transition_ =
+           transitions.at(SourceState).begin();
+       Transition_ != transitions.at(SourceState).end(); ++Transition_) {
+    std::wstring Transition_first;
+    TheAlphabet.getSymbol(Transition_first,
+                          TheAlphabet.decode(Transition_->first).first);
+
+    if (Transition_first.empty()) {
+      bi_dix_States.insert(Transition_->second);
+      insertEpsilonTransitionStates(TheAlphabet, bi_dix_States,
+                                    Transition_->second);
+    }
+  }
+}
+
 void Transducer::appendNode(
     const std::multimap<int, int>::const_iterator &SourceStateTransition,
     Transducer &TargetTransducer, const int &TargetTransducerSourceState,
@@ -990,17 +1008,17 @@ void Transducer::appendAtSign(Transducer &TargetTransducer,
   TargetTransducer.finals.insert(TargetTransducerTargetState);
 }
 
-bool operator<(const std::multimap<int, int>::const_iterator &a_,
-               const std::multimap<int, int>::const_iterator &b_) {
-  return true;
-}
-
 Transducer
 Transducer::intersect(Transducer &trimmer,
   Alphabet &this_a,
   Alphabet &trimmer_a,
   int const epsilon_tag)
 {
+  std::wcerr << L"mono_dix.intersect(bi_dix) ,\nwhere mono_dix is\n";
+  show(this_a, stderr);
+  std::wcerr << L"  and bi_dix is\n";
+  trimmer.show(trimmer_a, stderr);
+
   joinFinals(epsilon_tag);
   /**
    * this ∩ trimmer = trimmed
@@ -1047,38 +1065,12 @@ Transducer::intersect(Transducer &trimmer,
       exit(EXIT_FAILURE);
     }
     int trimmed_src = states_this_trimmed[make_pair(this_src, trimmer_src)];
-    std::set<std::pair<int, int> > Transitions_eq_IntersectorTransitions;
+    std::set<int> bi_dix_States;
+    bi_dix_States.insert(trimmer_src);
 
     // First loop through _epsilon_ transitions of trimmer
-    for(multimap<int, int>::iterator trimmer_trans_it = trimmer.transitions.at(trimmer_src).begin(),
-          trimmer_trans_limit = trimmer.transitions.at(trimmer_src).end();
-        trimmer_trans_it != trimmer_trans_limit;
-        trimmer_trans_it++) {
-      int trimmer_label = trimmer_trans_it->first,
-          trimmer_trg   = trimmer_trans_it->second;
-      wstring trimmer_left = L"";
-      trimmer_a.getSymbol(trimmer_left, trimmer_a.decode(trimmer_label).first);
-
-      if(trimmer_preplus == trimmer_src) {
-        // Keep the old preplus state if it was set; equal to current trimmer state means unset:
-        trimmer_preplus_next = trimmer_trg;
-      }
-
-      if(trimmer_left == L"")
-      {
-        next = make_pair(this_src, make_pair(trimmer_trg, trimmer_preplus_next));
-        std::pair<int, int> states_trg = make_pair(this_src, trimmer_trg);
-        if(seen.find(next) == seen.end())
-        {
-          todo.push_front(next);
-          states_this_trimmed.insert(make_pair(states_trg, trimmed.newState()));
-        }
-        int trimmed_trg = states_this_trimmed[states_trg];
-        trimmed.linkStates(trimmed_src,
-                           trimmed_trg,
-                           epsilon_tag);
-      }
-    }
+    trimmer.insertEpsilonTransitionStates(trimmer_a, bi_dix_States,
+                                          trimmer_src);
 
     // Loop through arcs from this_src; when our arc matches an arc
     // from live_trimmer_states, add that to (the front of) todo:
@@ -1113,7 +1105,6 @@ Transducer::intersect(Transducer &trimmer,
         trimmed.linkStates(trimmed_src, // fromState
                            trimmed_trg, // toState
                            this_label); // symbol-pair, using this alphabet
-        Transitions_eq_IntersectorTransitions.insert(*trans_it);
       }
       else if ( this_right == compoundOnlyLSymbol
                 || this_right == compoundRSymbol
@@ -1141,7 +1132,6 @@ Transducer::intersect(Transducer &trimmer,
         trimmed.linkStates(trimmed_src, // fromState
                            trimmed_trg, // toState
                            this_label); // symbol-pair, using this alphabet
-        Transitions_eq_IntersectorTransitions.insert(*trans_it);
       }
       else
       {
@@ -1155,50 +1145,71 @@ Transducer::intersect(Transducer &trimmer,
           trimmer_src = trimmer_preplus;
         }
 
-        for(multimap<int, int>::iterator trimmer_trans_it = trimmer.transitions.at(trimmer_src).begin(),
-              trimmer_trans_limit = trimmer.transitions.at(trimmer_src).end();
-            trimmer_trans_it != trimmer_trans_limit;
-            trimmer_trans_it++)
-        {
-          int trimmer_label = trimmer_trans_it->first,
-              trimmer_trg   = trimmer_trans_it->second;
-          wstring trimmer_left = L"";
-          trimmer_a.getSymbol(trimmer_left, trimmer_a.decode(trimmer_label).first);
+        bool Transition_not_eq_Epsilon = false,
+             Transition_eq_mono_dix_Transition = false;
 
-          if(trimmer_preplus == trimmer_src) {
-            // Keep the old preplus state if it was set; equal to current trimmer state means unset:
-            trimmer_preplus_next = trimmer_trg;
-          }
+        for (std::set<int>::const_iterator bi_dix_State_ =
+                 bi_dix_States.begin();
+             bi_dix_State_ != bi_dix_States.end(); ++bi_dix_State_) {
+          for (multimap<int, int>::iterator
+                   trimmer_trans_it =
+                       trimmer.transitions.at(*bi_dix_State_).begin(),
+                   trimmer_trans_limit =
+                       trimmer.transitions.at(*bi_dix_State_).end();
+               trimmer_trans_it != trimmer_trans_limit; trimmer_trans_it++) {
+            int trimmer_label = trimmer_trans_it->first,
+                trimmer_trg = trimmer_trans_it->second;
+            wstring trimmer_left;
+            trimmer_a.getSymbol(trimmer_left,
+                                trimmer_a.decode(trimmer_label).first);
 
-          if(trimmer_left != L"" && this_right == trimmer_left) // we've already dealt with trimmer epsilons
-          {
-            next = make_pair(this_trg, make_pair(trimmer_trg, trimmer_preplus_next));
-            if(seen.find(next) == seen.end())
-            {
+            if (trimmer_preplus == trimmer_src) {
+              // Keep the old preplus state if it was set; equal to current
+              // trimmer state means unset:
+              trimmer_preplus_next = trimmer_trg;
+            }
+
+            if (trimmer_left
+                    .empty()) // we've already dealt with trimmer epsilons
+              continue;
+
+            Transition_not_eq_Epsilon = true;
+
+            if (this_right != trimmer_left)
+              continue;
+
+            Transition_eq_mono_dix_Transition = true;
+
+            next = make_pair(this_trg,
+                             make_pair(trimmer_trg, trimmer_preplus_next));
+            if (seen.find(next) == seen.end()) {
               todo.push_front(next);
             }
             std::pair<int, int> states_trg = make_pair(this_trg, trimmer_trg);
-            if(states_this_trimmed.find(states_trg) == states_this_trimmed.end())
-            {
-              states_this_trimmed.insert(make_pair(states_trg, trimmed.newState()));
+            if (states_this_trimmed.find(states_trg) ==
+                states_this_trimmed.end()) {
+              states_this_trimmed.insert(
+                  make_pair(states_trg, trimmed.newState()));
             }
             int trimmed_trg = states_this_trimmed[states_trg];
             trimmed.linkStates(trimmed_src, // fromState
                                trimmed_trg, // toState
                                this_label); // symbol-pair, using this alphabet
-            Transitions_eq_IntersectorTransitions.insert(*trans_it);
-          }
-        } // end loop arcs from trimmer_src
+          }                                 // end loop arcs from trimmer_src
+        }
+
+        if (Transition_not_eq_Epsilon && !Transition_eq_mono_dix_Transition) {
+          std::wcerr << L"\nmono_dix'.appendNode() , where mono_dix' is\n";
+          trimmed.show(this_a, stderr);
+          std::wcerr << L"      this_src is " << this_src << L"\n"
+              "      trimmer_src is " << trimmer_src << L"\n"
+              "  and trimmed_src is " << trimmed_src << L'\n';
+          appendNode(trans_it, trimmed, trimmed_src, this_a);
+          std::wcerr << L'\n';
+          trimmed.show(this_a, stderr);
+        }
       } // end if JOIN else
     } // end loop arcs from this_src
-
-    for (std::multimap<int, int>::const_iterator Transition_ =
-             transitions.at(this_src).begin();
-         Transition_ != transitions.at(this_src).end(); ++Transition_) {
-      if (Transitions_eq_IntersectorTransitions.find(*Transition_) ==
-          Transitions_eq_IntersectorTransitions.end())
-        appendNode(Transition_, trimmed, trimmed_src, this_a);
-    }
   } // end while todo
 
   for(map<std::pair<int, int>, int >::iterator it = states_this_trimmed.begin(),
@@ -1214,6 +1225,9 @@ Transducer::intersect(Transducer &trimmer,
       trimmed.finals.insert(s_trimmed);
     }
   }
+
+  std::wcerr << L'\n';
+  trimmed.show(this_a, stderr);
 
   // We do not minimize here, in order to let lt_trim print a warning
   // (instead of exiting the whole program) if no finals.

@@ -130,6 +130,10 @@ trim(FILE *file_mono, FILE *file_bi) {
       alph_trans_mono.second[it->first].clear();
     } else {
       trimmed_tmp.minimize();
+
+      std::wcerr << L'\n';
+      trimmed_tmp.show(alph_trans_mono.first.first, stderr);
+
       alph_trans_mono.second[it->first] = trimmed_tmp;
     }
   }

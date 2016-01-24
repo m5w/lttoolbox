@@ -334,6 +334,10 @@ public:
                                Alphabet const &alphabet,
                                int const epsilon_tag = 0);
 
+  void insertEpsilonTransitionStates(const Alphabet &TheAlphabet,
+                                     std::set<int> &bi_dix_States,
+                                     const int &SourceState) const;
+
   void appendNode(
       const std::multimap<int, int>::const_iterator &SourceStateTransition,
       Transducer &TargetTransducer, const int &TargetTransducerSourceState,
@@ -362,8 +366,5 @@ public:
                        int const epsilon_tag = 0);
 
 };
-
-bool operator<(const std::multimap<int, int>::const_iterator &a_,
-               const std::multimap<int, int>::const_iterator &b_);
 
 #endif
