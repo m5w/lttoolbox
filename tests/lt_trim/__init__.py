@@ -42,7 +42,7 @@ class TrimProcTest(ProcTest):
 
 class TrimNormalAndJoin(unittest.TestCase, TrimProcTest):
     inputs = ["abc", "ab", "y", "n", "jg", "jh", "kg"]
-    expectedOutputs = ["^abc/ab<n><def>$", "^ab/ab<n><ind>$", "^y/y<n><ind>$", "^n/*n$", "^jg/j<pr>+g<n>$", "^jh/*jh$", "^kg/*kg$"]
+    expectedOutputs = ["^abc/ab<n><def>$", "^ab/ab<n><ind>$", "^y/y<n><ind>$", "^n/n<n><ind><>$", "^jg/j<pr>+g<n>$", "^jh/j<pr>+h<n><>$", "^kg/k<pr>+g<n><>$"]
 
 class TrimCmp(unittest.TestCase, TrimProcTest):
     inputs = ["a", "b", "c", "d", "aa", "ab", "ac", "ad", "ba", "bb", "bc", "bd", "ca", "cb", "cc", "cd", "da", "db", "dc", "dd", ]
@@ -59,7 +59,7 @@ class TrimLongleft(unittest.TestCase, TrimProcTest):
 
 class DivergingPaths(unittest.TestCase, TrimProcTest):
     inputs = ["xa ya"]
-    expectedOutputs = ["^xa/*xa$ ^ya/ya<vblex>$"]
+    expectedOutputs = ["^xa/xa<vblex><>$ ^ya/ya<vblex>$"]
     monodix = "data/diverging-paths-mono.dix"
     bidix = "data/diverging-paths-bi.dix"
 
@@ -93,7 +93,7 @@ class LeftUnbalancedEpsilons(unittest.TestCase, TrimProcTest):
 
 class Group(unittest.TestCase, TrimProcTest):
     inputs = ["abc", "pq", "pqr", "pqs", "xyz"]
-    expectedOutputs = ["^abc/ab<n><ind>#c$", "^pq/pq<n><ind>$", "^pqr/pq<n><ind>#r$", "^pqs/*pqs$", "^xyz/*xyz$"]
+    expectedOutputs = ["^abc/ab<n><ind>#c$", "^pq/pq<n><ind>$", "^pqr/pq<n><ind>#r$", "^pqs/pq<n><ind>#s<>$", "^xyz/xy<n><ind>#z<>$"]
     monodix = "data/group-mono.dix"
     bidix = "data/group-bi.dix"
 
@@ -105,7 +105,7 @@ class GroupUnbalancedEpsilons(unittest.TestCase, TrimProcTest):
 
 class BothJoinAndGroup(unittest.TestCase, TrimProcTest):
     inputs = ["jkl", "jkm", "jnl"]
-    expectedOutputs = ["^jkl/j<n><ind>+k<n><ind>#l$", "^jkm/*jkm$", "^jnl/*jnl$"]
+    expectedOutputs = ["^jkl/j<n><ind>+k<n><ind>#l$", "^jkm/j<n><ind>+k<n><ind>#m<>$", "^jnl/j<n><ind>+n<n><ind>#l<>$"]
     monodix = "data/group-mono.dix"
     bidix = "data/group-bi.dix"
 
@@ -118,7 +118,7 @@ class FinalEpsilons(unittest.TestCase, TrimProcTest):
 
 class BidixEpsilons(unittest.TestCase, TrimProcTest):
     inputs = ["aa ba"]
-    expectedOutputs = ["^aa/aa<vblex><pp>$ ^ba/*ba$"]
+    expectedOutputs = ["^aa/aa<vblex><pp>$ ^ba/ba<vblex><pp><>$"]
     monodix = "data/bidix-epsilons-mono.dix"
     bidix = "data/bidix-epsilons-bi.dix"
     bidir = "rl"

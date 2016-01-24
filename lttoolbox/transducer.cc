@@ -955,6 +955,9 @@ Transducer::moveLemqsLast(Alphabet const &alphabet,
 void Transducer::insertEpsilonTransitionStates(const Alphabet &TheAlphabet,
                                                std::set<int> &bi_dix_States,
                                                const int &SourceState) const {
+  std::wcerr << L"searching for epsilons at bi_dix state " << SourceState
+             << L'\n';
+
   for (std::multimap<int, int>::const_iterator Transition_ =
            transitions.at(SourceState).begin();
        Transition_ != transitions.at(SourceState).end(); ++Transition_) {
@@ -963,6 +966,7 @@ void Transducer::insertEpsilonTransitionStates(const Alphabet &TheAlphabet,
                           TheAlphabet.decode(Transition_->first).first);
 
     if (Transition_first.empty()) {
+      std::wcerr << "found " << Transition_->second << L'\n';
       bi_dix_States.insert(Transition_->second);
       insertEpsilonTransitionStates(TheAlphabet, bi_dix_States,
                                     Transition_->second);
@@ -1009,9 +1013,9 @@ void Transducer::appendAtSign(Transducer &TargetTransducer,
 }
 
 Transducer
-Transducer::intersect(Transducer &trimmer,
+Transducer::intersect(const Transducer &trimmer,
   Alphabet &this_a,
-  Alphabet &trimmer_a,
+  const Alphabet &trimmer_a,
   int const epsilon_tag)
 {
   std::wcerr << L"mono_dix.intersect(bi_dix) ,\nwhere mono_dix is\n";
@@ -1140,18 +1144,35 @@ Transducer::intersect(Transducer &trimmer,
         // If we see a plus, we may have to rewind our trimmer state first:
         if(this_right == COMPILER_GROUP_ELEM && trimmer_preplus != trimmer_src)
         {
+          std::wcerr << L"found # where bi_dix is\n";
+          trimmer.show(trimmer_a, stderr);
           states_this_trimmed.insert(make_pair(make_pair(this_src, trimmer_preplus),
                                                trimmed_src));
           trimmer_src = trimmer_preplus;
+          bi_dix_States.clear();
+          bi_dix_States.insert(trimmer_src);
+          trimmer.insertEpsilonTransitionStates(trimmer_a, bi_dix_States,
+                                                trimmer_src);
         }
 
         bool Transition_not_eq_Epsilon = false,
              Transition_eq_mono_dix_Transition = false;
 
+        std::wcerr << L"about to search bi_dix states [";
+
         for (std::set<int>::const_iterator bi_dix_State_ =
                  bi_dix_States.begin();
              bi_dix_State_ != bi_dix_States.end(); ++bi_dix_State_) {
-          for (multimap<int, int>::iterator
+          std::wcerr << L", " << *bi_dix_State_;
+        }
+
+        std::wcerr << L"]\n";
+
+        for (std::set<int>::const_iterator bi_dix_State_ =
+                 bi_dix_States.begin();
+             bi_dix_State_ != bi_dix_States.end(); ++bi_dix_State_) {
+          std::wcerr << L"searching bi_dix state " << *bi_dix_State_ << L'\n';
+          for (multimap<int, int>::const_iterator
                    trimmer_trans_it =
                        trimmer.transitions.at(*bi_dix_State_).begin(),
                    trimmer_trans_limit =
@@ -1175,8 +1196,12 @@ Transducer::intersect(Transducer &trimmer,
 
             Transition_not_eq_Epsilon = true;
 
-            if (this_right != trimmer_left)
+            if (this_right != trimmer_left) {
+              std::wcerr << *bi_dix_State_ << L'\t' << trimmer_trg << L'\t'
+                         << trimmer_left << L" doesn't match " << this_right
+                         << L'\n';
               continue;
+            }
 
             Transition_eq_mono_dix_Transition = true;
 
