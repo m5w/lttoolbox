@@ -351,6 +351,25 @@ public:
                        Alphabet const &t_a,
                        int const epsilon_tag = 0);
 
+  friend Transducer diff(const Transducer &a_, const Alphabet &a_Alphabet_,
+                         const Transducer &b_, const Alphabet &b_Alphabet_);
+
+  friend void diff(std::vector<int> a_first_Symbol_vector, const Transducer &a_,
+                   const Alphabet &a_Alphabet_, const int &a_State,
+                   std::vector<int> a_second_Symbol_vector, const Transducer &b_,
+                   const Alphabet &b_Alphabet_,
+                   std::multimap<int, std::vector<int> > b_Source_multimap);
+
+  friend void diff(const std::vector<int> &a_first_Symbol_vector,
+                   const Transducer &b_, const Alphabet &b_Alphabet_,
+                   const std::pair<int, std::vector<int> > &b_Source_,
+                   bool &a_Transition_eq_b_Transition);
+
+  friend void
+  diff(const int &a_first_Symbol, const Transducer &b_,
+       const Alphabet &b_Alphabet_,
+       const std::pair<int, std::vector<int> > &b_Source_,
+       std::multimap<int, std::vector<int> > &b_Target_multimap);
 };
 
 #endif
