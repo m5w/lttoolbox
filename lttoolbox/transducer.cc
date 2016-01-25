@@ -1172,19 +1172,52 @@ bool isEpsilon(const int &Symbol, const Alphabet &Alphabet_) {
   return Symbol_wstring.empty();
 }
 
-Transducer diff(const Transducer &a_, const Alphabet &a_Alphabet_,
-                const Transducer &b_, const Alphabet &b_Alphabet_) {
+std::pair<Transducer, Alphabet> diff(const Transducer &a_,
+                                     Alphabet a_Alphabet_,
+                                     const Transducer &b_,
+                                     const Alphabet &b_Alphabet_) {
   Transducer diff_;
-  std::vector<int> a_first_Symbol_vector, a_second_Symbol_vector;
   std::multimap<int, std::vector<int> > b_Source_multimap;
   b_Source_multimap.insert(std::make_pair(b_.initial, std::vector<int>()));
-  diff(a_first_Symbol_vector, a_, a_Alphabet_, a_.initial,
-       a_second_Symbol_vector, b_, b_Alphabet_, b_Source_multimap);
-  return diff_;
+  diff(diff_, std::vector<int>(), a_, a_Alphabet_, a_.initial,
+       std::vector<int>(), b_, b_Alphabet_, b_Source_multimap);
+  return std::make_pair(diff_, a_Alphabet_);
 }
 
-void diff(std::vector<int> a_first_Symbol_vector, const Transducer &a_,
-          const Alphabet &a_Alphabet_, const int &a_State,
+void Transducer::insert(Alphabet &Alphabet_,
+                        const std::vector<int> &first_Symbol_vector,
+                        const std::vector<int> &second_Symbol_vector) {
+  const int Epsilon = Alphabet_(std::wstring());
+  int SourceState = initial;
+
+  for (std::vector<int>::const_iterator first_Symbol_ =
+           first_Symbol_vector.begin();
+       first_Symbol_ != first_Symbol_vector.end(); ++first_Symbol_) {
+    int TargetState = newState();
+    linkStates(SourceState, TargetState, Alphabet_(*first_Symbol_, Epsilon));
+    SourceState = TargetState;
+  }
+
+  {
+    int TargetState = newState();
+    Alphabet_.includeSymbol(L"@");
+    linkStates(SourceState, TargetState, Alphabet_(Epsilon, Alphabet_(L"@")));
+    SourceState = TargetState;
+  }
+
+  for (std::vector<int>::const_iterator second_Symbol_ =
+           second_Symbol_vector.begin();
+       second_Symbol_ != second_Symbol_vector.end(); ++second_Symbol_) {
+    int TargetState = newState();
+    linkStates(SourceState, TargetState, Alphabet_(Epsilon, *second_Symbol_));
+    SourceState = TargetState;
+  }
+
+  finals.insert(SourceState);
+}
+
+void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
+          const Transducer &a_, Alphabet &a_Alphabet_, const int &a_State,
           std::vector<int> a_second_Symbol_vector, const Transducer &b_,
           const Alphabet &b_Alphabet_,
           std::multimap<int, std::vector<int> > b_Source_multimap) {
@@ -1194,12 +1227,11 @@ void diff(std::vector<int> a_first_Symbol_vector, const Transducer &a_,
     for (std::multimap<int, std::vector<int> >::const_iterator b_Source_ =
              b_Source_multimap.begin();
          b_Source_ != b_Source_multimap.end(); ++b_Source_)
-      diff(a_first_Symbol_vector, b_, b_Alphabet_, *b_Source_,
+      diff(diff_, a_second_Symbol_vector, b_, b_Alphabet_, *b_Source_,
            a_Transition_eq_b_Transition);
 
-    if (!a_Transition_eq_b_Transition) {
-      // diff_.insert . . .
-    }
+    if (!a_Transition_eq_b_Transition)
+      diff_.insert(a_Alphabet_, a_first_Symbol_vector, a_second_Symbol_vector);
 
     return;
   }
@@ -1211,18 +1243,25 @@ void diff(std::vector<int> a_first_Symbol_vector, const Transducer &a_,
         a_Alphabet_.decode(a_Transition_->first);
     std::multimap<int, std::vector<int> > b_Target_multimap;
 
+    // following Epsilon loopback transitions is infinite recursion—don’t do
+    // it.
+    if (a_Transition_->second == a_State)
+
+      // Try the next state.
+      continue;
+
     if (isEpsilon(a_TransitionSymbol_pair.first, a_Alphabet_))
       b_Target_multimap = b_Source_multimap;
     else {
       for (std::multimap<int, std::vector<int> >::const_iterator b_Source_ =
                b_Source_multimap.begin();
            b_Source_ != b_Source_multimap.end(); ++b_Source_)
-        diff(a_TransitionSymbol_pair.first, b_, b_Alphabet_, *b_Source_,
+        diff(diff_, a_TransitionSymbol_pair.first, b_, b_Alphabet_, *b_Source_,
              b_Target_multimap);
 
-      if (b_Target_multimap.empty()) {
-        // diff_.insert . . .
-      }
+      if (b_Target_multimap.empty())
+        diff_.insert(a_Alphabet_, a_first_Symbol_vector,
+                     a_second_Symbol_vector);
 
       a_first_Symbol_vector.push_back(a_TransitionSymbol_pair.first);
     }
@@ -1230,20 +1269,20 @@ void diff(std::vector<int> a_first_Symbol_vector, const Transducer &a_,
     if (!isEpsilon(a_TransitionSymbol_pair.second, a_Alphabet_))
       a_second_Symbol_vector.push_back(a_TransitionSymbol_pair.second);
 
-    diff(a_first_Symbol_vector, a_, a_Alphabet_, a_Transition_->second,
+    diff(diff_, a_first_Symbol_vector, a_, a_Alphabet_, a_Transition_->second,
          a_second_Symbol_vector, b_, b_Alphabet_, b_Target_multimap);
   }
 }
 
-void diff(const std::vector<int> &a_first_Symbol_vector, const Transducer &b_,
-          const Alphabet &b_Alphabet_,
+void diff(Transducer &diff_, const std::vector<int> &a_second_Symbol_vector,
+          const Transducer &b_, const Alphabet &b_Alphabet_,
           const std::pair<int, std::vector<int> > &b_Source_,
           bool &a_Transition_eq_b_Transition) {
   if (a_Transition_eq_b_Transition)
     return;
 
   if (b_.isFinal(b_Source_.first)) {
-    if (a_first_Symbol_vector == b_Source_.second) {
+    if (a_second_Symbol_vector == b_Source_.second) {
       a_Transition_eq_b_Transition = true;
       return;
     }
@@ -1259,46 +1298,76 @@ void diff(const std::vector<int> &a_first_Symbol_vector, const Transducer &b_,
         std::pair<int, std::vector<int> > b_Target_(b_Transition_->second,
                                                     b_Source_.second);
 
-        if (isEpsilon(b_TransitionSymbol_pair.first, b_Alphabet_))
-          b_Target_.second.push_back(b_TransitionSymbol_pair.second);
+        // To-do: follow Epsilon loopback transitions with non-Epsilon second
+        // symbols for the number of such second symbols following the state in
+        // a_.
+        // Hack: don’t follow non-final Epsilon loopback transitions.
+        if (b_Transition_->second == b_Source_.first)
 
-        diff(a_first_Symbol_vector, b_, b_Alphabet_, b_Target_,
+          // Try the next state.
+          continue;
+
+        if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
+          b_Target_.second.push_back(b_TransitionSymbol_pair.second);
+        else
+            // following double-Epsilon loopback transitions is infinite
+            // recursion with no change per iteration—don’t do it.
+            if (b_Transition_->second == b_Source_.first)
+
+              // Try the next transition.
+              continue;
+
+        diff(diff_, a_second_Symbol_vector, b_, b_Alphabet_, b_Target_,
              a_Transition_eq_b_Transition);
       }
     }
   }
 }
 
-void
-diff(const int &a_first_Symbol, const Transducer &b_,
-     const Alphabet &b_Alphabet_,
-     const std::pair<int, std::vector<int> > &b_Source_,
-     std::multimap<int, std::vector<int> > &b_Target_multimap) {
-  if (!b_.isFinal(b_Source_.first)) {
-    for (std::multimap<int, int>::const_iterator b_Transition_ =
-             b_.transitions.at(b_Source_.first).begin();
-         b_Transition_ != b_.transitions.at(b_Source_.first).end();
-         ++b_Transition_) {
-      std::pair<int, int> b_TransitionSymbol_pair =
-          b_Alphabet_.decode(b_Transition_->first);
+void diff(Transducer &diff_, const int &a_first_Symbol, const Transducer &b_,
+          const Alphabet &b_Alphabet_,
+          const std::pair<int, std::vector<int> > &b_Source_,
+          std::multimap<int, std::vector<int> > &b_Target_multimap) {
+  for (std::multimap<int, int>::const_iterator b_Transition_ =
+           b_.transitions.at(b_Source_.first).begin();
+       b_Transition_ != b_.transitions.at(b_Source_.first).end();
+       ++b_Transition_) {
+    std::pair<int, int> b_TransitionSymbol_pair =
+        b_Alphabet_.decode(b_Transition_->first);
 
-      if (isEpsilon(b_TransitionSymbol_pair.first, b_Alphabet_)) {
-        std::pair<int, std::vector<int> > b_Target_(b_Transition_->second,
-                                                    b_Source_.second);
+    if (isEpsilon(b_TransitionSymbol_pair.first, b_Alphabet_)) {
+      std::pair<int, std::vector<int> > b_Target_(b_Transition_->second,
+                                                  b_Source_.second);
+
+      // To-do: follow Epsilon loopback transitions with non-Epsilon second
+      // symbols for the number of such second symbols following the state in
+      // a_.
+      // Hack: don’t follow Epsilon loopback transitions.
+      if (b_Transition_->second == b_Source_.first)
+
+        // Try the next state.
+        continue;
+
+      if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
+        b_Target_.second.push_back(b_TransitionSymbol_pair.second);
+      else
+        // following double-Epsilon loopback transitions is infinite recursion
+        // with no change per iteration—don’t do it.
+        if (b_Transition_->second == b_Source_.first)
+
+          // Try the next state.
+          continue;
+
+      diff(diff_, a_first_Symbol, b_, b_Alphabet_, b_Target_,
+           b_Target_multimap);
+    } else {
+      if (b_TransitionSymbol_pair.first == a_first_Symbol) {
+        std::multimap<int, std::vector<int> >::iterator b_Target_ =
+            b_Target_multimap.insert(
+                std::make_pair(b_Transition_->second, b_Source_.second));
 
         if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
-          b_Target_.second.push_back(b_TransitionSymbol_pair.second);
-
-        diff(a_first_Symbol, b_, b_Alphabet_, b_Target_, b_Target_multimap);
-      } else {
-        if (b_TransitionSymbol_pair.first == a_first_Symbol) {
-          std::multimap<int, std::vector<int> >::iterator b_Target_ =
-              b_Target_multimap.insert(
-                  std::make_pair(b_Transition_->second, b_Source_.second));
-
-          if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
-            b_Target_->second.push_back(b_TransitionSymbol_pair.second);
-        }
+          b_Target_->second.push_back(b_TransitionSymbol_pair.second);
       }
     }
   }
