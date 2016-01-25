@@ -81,22 +81,18 @@ std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> >
 trim(FILE *file_mono, FILE *file_bi)
 {
   std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> > alph_trans_mono = read_fst(file_mono);
-  Alphabet alph_mono = alph_trans_mono.first.first;
-  std::map<wstring, Transducer> trans_mono = alph_trans_mono.second;
   std::pair<std::pair<Alphabet, wstring>, std::map<wstring, Transducer> > alph_trans_bi = read_fst(file_bi);
-  Alphabet alph_bi = alph_trans_bi.first.first;
-  std::map<wstring, Transducer> trans_bi = alph_trans_bi.second;
 
   // The prefix transducer is the union of all transducers from bidix,
   // with a ".*" appended
   Transducer union_transducer;
   // The "." in ".*" is a set of equal pairs of the output symbols
   // from the monodix alphabet (<n>:<n> etc.)
-  Alphabet alph_prefix = alph_bi;
+  Alphabet alph_prefix = alph_trans_bi.first.first;
   set<int> loopback_symbols;    // ints refer to alph_prefix
-  alph_prefix.createLoopbackSymbols(loopback_symbols, alph_mono, Alphabet::right);
+  alph_prefix.createLoopbackSymbols(loopback_symbols, alph_trans_mono.first.first, Alphabet::right);
 
-  for(std::map<wstring, Transducer>::iterator it = trans_bi.begin(); it != trans_bi.end(); it++)
+  for(std::map<wstring, Transducer>::iterator it = alph_trans_bi.second.begin(); it != alph_trans_bi.second.end(); it++)
   {
     Transducer union_tmp = it->second;
     if(union_transducer.isEmpty())
@@ -105,7 +101,7 @@ trim(FILE *file_mono, FILE *file_bi)
     }
     else
     {
-      union_transducer.unionWith(alph_bi, union_tmp);
+      union_transducer.unionWith(alph_trans_bi.first.first, union_tmp);
     }
   }
   union_transducer.minimize();
@@ -115,10 +111,10 @@ trim(FILE *file_mono, FILE *file_bi)
   Transducer moved_transducer = prefix_transducer.moveLemqsLast(alph_prefix);
 
 
-  for(std::map<wstring, Transducer>::iterator it = trans_mono.begin(); it != trans_mono.end(); it++)
+  for(std::map<wstring, Transducer>::iterator it = alph_trans_mono.second.begin(); it != alph_trans_mono.second.end(); it++)
   {
     Transducer trimmed_tmp = it->second.intersect(moved_transducer,
-                                                  alph_mono,
+                                                  alph_trans_mono.first.first,
                                                   alph_prefix);
 
     wcout << it->first << " " << it->second.size();
@@ -126,19 +122,24 @@ trim(FILE *file_mono, FILE *file_bi)
     if(it->second.numberOfTransitions() == 0)
     {
       wcerr << L"Warning: empty section! Skipping it ..."<<endl;
-      trans_mono[it->first].clear();
+      alph_trans_mono.second[it->first].clear();
     }
     else if(trimmed_tmp.hasNoFinals()) {
       wcerr << L"Warning: section had no final state after trimming! Skipping it ..."<<endl;
-      trans_mono[it->first].clear();
+      alph_trans_mono.second[it->first].clear();
     }
     else {
       trimmed_tmp.minimize();
-      trans_mono[it->first] = trimmed_tmp;
+      std::pair<Transducer, Alphabet> diff_ = diff(
+          alph_trans_mono.second.at(it->first), alph_trans_mono.first.first,
+          trimmed_tmp, alph_trans_mono.first.first);
+      alph_trans_mono.second[it->first] = diff_.first;
+      alph_trans_mono.first.first = diff_.second;
+
+      diff_.first.show(alph_trans_mono.first.first);
     }
   }
 
-  alph_trans_mono.second = trans_mono;
   return alph_trans_mono;
 }
 

@@ -1172,13 +1172,34 @@ bool isEpsilon(const int &Symbol, const Alphabet &Alphabet_) {
   return Symbol_wstring.empty();
 }
 
+void hr() {
+  for (std::size_t i_ = 80; i_ != 0; --i_) {
+    std::wcerr << L'-';
+  }
+  std::wcerr << std::endl;
+}
+
 std::pair<Transducer, Alphabet> diff(const Transducer &a_,
                                      Alphabet a_Alphabet_,
                                      const Transducer &b_,
                                      const Alphabet &b_Alphabet_) {
+  std::wcerr << std::endl << std::endl;
+  hr();
+  std::wcerr << L"diff[0]" << std::endl;
+  std::wcerr << L"a_" << std::endl;
+  a_.show(a_Alphabet_, stderr);
+  std::fflush(stderr);
+  std::wcerr << L"b_" << std::endl;
+  b_.show(b_Alphabet_, stderr);
+  std::fflush(stderr);
+  hr();
+  std::wcerr << std::endl;
   Transducer diff_;
   std::multimap<int, std::vector<int> > b_Source_multimap;
   b_Source_multimap.insert(std::make_pair(b_.initial, std::vector<int>()));
+  std::wcerr << L"diff[0] -> diff[1]" << std::endl <<
+"  diff(diff_, std::vector<int>(), a_, a_Alphabet_, a_.initial," << std::endl <<
+"       std::vector<int>(), b_, b_Alphabet_, b_Source_multimap);" << std::endl;
   diff(diff_, std::vector<int>(), a_, a_Alphabet_, a_.initial,
        std::vector<int>(), b_, b_Alphabet_, b_Source_multimap);
   return std::make_pair(diff_, a_Alphabet_);
@@ -1200,8 +1221,7 @@ void Transducer::insert(Alphabet &Alphabet_,
 
   {
     int TargetState = newState();
-    Alphabet_.includeSymbol(L"@");
-    linkStates(SourceState, TargetState, Alphabet_(Epsilon, Alphabet_(L"@")));
+    linkStates(SourceState, TargetState, Alphabet_(Epsilon, '@'));
     SourceState = TargetState;
   }
 
@@ -1214,6 +1234,7 @@ void Transducer::insert(Alphabet &Alphabet_,
   }
 
   finals.insert(SourceState);
+  minimize();
 }
 
 void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
@@ -1221,6 +1242,43 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
           std::vector<int> a_second_Symbol_vector, const Transducer &b_,
           const Alphabet &b_Alphabet_,
           std::multimap<int, std::vector<int> > b_Source_multimap) {
+  std::wcerr << std::endl << std::endl;
+  hr();
+  std::wcerr << L"diff[1]" << std::endl;
+  std::wcerr << L"a_first_Symbol_vector = {";
+  if (!a_first_Symbol_vector.empty()) {
+    std::vector<int>::const_iterator i_ = a_first_Symbol_vector.begin();
+    std::wcerr << *i_;
+    for (++i_; i_ != a_first_Symbol_vector.end(); ++i_) {
+      std::wcerr << L", " << *i_;
+    }
+  }
+  std::wcerr << L"}" << std::endl;
+  std::wcerr << L"a_State = " << a_State << std::endl;
+  std::wcerr << L"a_second_Symbol_vector = {";
+  if (!a_second_Symbol_vector.empty()) {
+    std::vector<int>::const_iterator i_ = a_second_Symbol_vector.begin();
+    std::wcerr << *i_;
+    for (++i_; i_ != a_second_Symbol_vector.end(); ++i_) {
+      std::wcerr << L", " << *i_;
+    }
+  }
+  std::wcerr << L"}" << std::endl;
+  std::wcerr << L"b_Source_multimap = {" << std::endl;
+  for (std::multimap<int, std::vector<int> >::const_iterator i_ = b_Source_multimap.begin(); i_ != b_Source_multimap.end(); ++i_) {
+    std::wcerr << L"  [" << i_->first << L"] = {";
+    if (!i_->second.empty()) {
+      std::vector<int>::const_iterator j_ = i_->second.begin();
+      std::wcerr << *j_;
+      for (++j_; j_ != i_->second.end(); ++j_) {
+        std::wcerr << L", " << *j_;
+      }
+    }
+    std::wcerr << L"}" << std::endl;
+  }
+  std::wcerr << L"}" << std::endl;
+  hr();
+  std::wcerr << std::endl;
   if (a_.isFinal(a_State)) {
     bool a_Transition_eq_b_Transition = false;
 
@@ -1239,8 +1297,15 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
   for (std::multimap<int, int>::const_iterator a_Transition_ =
            a_.transitions.at(a_State).begin();
        a_Transition_ != a_.transitions.at(a_State).end(); ++a_Transition_) {
+    std::wcerr << L"*a_Transition_ = {first = " << a_Transition_->first << L", second = " << a_Transition_->second << L"}" << std::endl;
+    std::wcerr <<
+"    std::pair<int, int> a_TransitionSymbol_pair =" << std::endl <<
+"        a_Alphabet_.decode(a_Transition_->first);" << std::endl;
     std::pair<int, int> a_TransitionSymbol_pair =
         a_Alphabet_.decode(a_Transition_->first);
+    std::wcerr << L"a_TransitionSymbol_pair = {first = "
+               << a_TransitionSymbol_pair.first << L", second = "
+               << a_TransitionSymbol_pair.second << L"}" << std::endl;
     std::multimap<int, std::vector<int> > b_Target_multimap;
 
     // following Epsilon loopback transitions is infinite recursion—don’t do
@@ -1250,25 +1315,95 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
       // Try the next state.
       continue;
 
-    if (isEpsilon(a_TransitionSymbol_pair.first, a_Alphabet_))
+    if (isEpsilon(a_TransitionSymbol_pair.first, a_Alphabet_)) {
+      std::wcerr <<
+"      b_Target_multimap = b_Source_multimap;" << std::endl;
       b_Target_multimap = b_Source_multimap;
+      std::wcerr << L"b_Target_multimap = {" << std::endl;
+      for (std::multimap<int, std::vector<int> >::const_iterator i_ = b_Target_multimap.begin(); i_ != b_Target_multimap.end(); ++i_) {
+        std::wcerr << L"  [" << i_->first << L"] = {";
+        if (!i_->second.empty()) {
+          std::vector<int>::const_iterator j_ = i_->second.begin();
+          std::wcerr << *j_;
+          for (++j_; j_ != i_->second.end(); ++j_) {
+            std::wcerr << L", " << *j_;
+          }
+        }
+        std::wcerr << L"}" << std::endl;
+      }
+      std::wcerr << L"}" << std::endl;
+    }
     else {
       for (std::multimap<int, std::vector<int> >::const_iterator b_Source_ =
                b_Source_multimap.begin();
-           b_Source_ != b_Source_multimap.end(); ++b_Source_)
+           b_Source_ != b_Source_multimap.end(); ++b_Source_) {
+        std::wcerr << L"*b_Source_ = {first = " << b_Source_->first << L", second = {";
+        if (!b_Source_->second.empty()) {
+          std::vector<int>::const_iterator i_ = b_Source_->second.begin();
+          std::wcerr << *i_;
+          for (++i_; i_ != b_Source_->second.end(); ++i_) {
+            std::wcerr << L", " << *i_;
+          }
+        }
+        std::wcerr << L"}}" << std::endl;
+        std::wcerr << L"diff[1] -> diff[2]" << std::endl <<
+"        diff(diff_, a_TransitionSymbol_pair.first, b_, b_Alphabet_, *b_Source_," << std::endl <<
+"             b_Target_multimap);" << std::endl;
         diff(diff_, a_TransitionSymbol_pair.first, b_, b_Alphabet_, *b_Source_,
              b_Target_multimap);
+        std::wcerr <<
+            "diff[1] <- diff[2]" << std::endl;
+        std::wcerr << L"b_Target_multimap = {" << std::endl;
+        for (std::multimap<int, std::vector<int> >::const_iterator i_ = b_Target_multimap.begin(); i_ != b_Target_multimap.end(); ++i_) {
+          std::wcerr << L"  [" << i_->first << L"] = {";
+          if (!i_->second.empty()) {
+            std::vector<int>::const_iterator j_ = i_->second.begin();
+            std::wcerr << *j_;
+            for (++j_; j_ != i_->second.end(); ++j_) {
+              std::wcerr << L", " << *j_;
+            }
+          }
+          std::wcerr << L"}" << std::endl;
+        }
+        std::wcerr << L"}" << std::endl;
+      }
 
       if (b_Target_multimap.empty())
         diff_.insert(a_Alphabet_, a_first_Symbol_vector,
                      a_second_Symbol_vector);
 
       a_first_Symbol_vector.push_back(a_TransitionSymbol_pair.first);
+      std::wcerr <<
+"      a_first_Symbol_vector.push_back(a_TransitionSymbol_pair.first);" << std::endl;
+      std::wcerr << L"a_first_Symbol_vector = {";
+      if (!a_first_Symbol_vector.empty()) {
+        std::vector<int>::const_iterator i_ = a_first_Symbol_vector.begin();
+        std::wcerr << *i_;
+        for (++i_; i_ != a_first_Symbol_vector.end(); ++i_) {
+          std::wcerr << L", " << *i_;
+        }
+      }
+      std::wcerr << L"}" << std::endl;
     }
 
-    if (!isEpsilon(a_TransitionSymbol_pair.second, a_Alphabet_))
+    if (!isEpsilon(a_TransitionSymbol_pair.second, a_Alphabet_)) {
+      std::wcerr <<
+"      a_second_Symbol_vector.push_back(a_TransitionSymbol_pair.second);" << std::endl;
       a_second_Symbol_vector.push_back(a_TransitionSymbol_pair.second);
+      std::wcerr << L"a_second_Symbol_vector = {";
+      if (!a_second_Symbol_vector.empty()) {
+        std::vector<int>::const_iterator i_ = a_second_Symbol_vector.begin();
+        std::wcerr << *i_;
+        for (++i_; i_ != a_second_Symbol_vector.end(); ++i_) {
+          std::wcerr << L", " << *i_;
+        }
+      }
+      std::wcerr << L"}" << std::endl;
+    }
 
+    std::wcerr << L"diff[1] -> diff[1]" << std::endl <<
+"    diff(diff_, a_first_Symbol_vector, a_, a_Alphabet_, a_Transition_->second," << std::endl <<
+"         a_second_Symbol_vector, b_, b_Alphabet_, b_Target_multimap);" << std::endl;
     diff(diff_, a_first_Symbol_vector, a_, a_Alphabet_, a_Transition_->second,
          a_second_Symbol_vector, b_, b_Alphabet_, b_Target_multimap);
   }
@@ -1328,16 +1463,63 @@ void diff(Transducer &diff_, const int &a_first_Symbol, const Transducer &b_,
           const Alphabet &b_Alphabet_,
           const std::pair<int, std::vector<int> > &b_Source_,
           std::multimap<int, std::vector<int> > &b_Target_multimap) {
+  std::wcerr << std::endl << std::endl;
+  hr();
+  std::wcerr << L"diff[2]" << std::endl;
+  std::wcerr << L"a_first_Symbol = " << a_first_Symbol << std::endl;
+  std::wcerr << L"b_Source_ = {first = " << b_Source_.first << L", second = {";
+  if (!b_Source_.second.empty()) {
+    std::vector<int>::const_iterator i_ = b_Source_.second.begin();
+    std::wcerr << *i_;
+    for (++i_; i_ != b_Source_.second.end(); ++i_) {
+      std::wcerr << L", " << *i_;
+    }
+  }
+  std::wcerr << L"}}" << std::endl;
+  std::wcerr << L"b_Target_multimap = {" << std::endl;
+  for (std::multimap<int, std::vector<int> >::const_iterator i_ = b_Target_multimap.begin(); i_ != b_Target_multimap.end(); ++i_) {
+    std::wcerr << L"  [" << i_->first << L"] = {";
+    if (!i_->second.empty()) {
+      std::vector<int>::const_iterator j_ = i_->second.begin();
+      std::wcerr << *j_;
+      for (++j_; j_ != i_->second.end(); ++j_) {
+        std::wcerr << L", " << *j_;
+      }
+    }
+    std::wcerr << L"}" << std::endl;
+  }
+  std::wcerr << L"}" << std::endl;
+  hr();
+  std::wcerr << std::endl;
   for (std::multimap<int, int>::const_iterator b_Transition_ =
            b_.transitions.at(b_Source_.first).begin();
        b_Transition_ != b_.transitions.at(b_Source_.first).end();
        ++b_Transition_) {
+    std::wcerr << L"*b_Transition_ = {first = " << b_Transition_->first << L", second = " << b_Transition_->second << L"}" << std::endl;
+    std::wcerr <<
+"    std::pair<int, int> b_TransitionSymbol_pair =" << std::endl <<
+"        b_Alphabet_.decode(b_Transition_->first);" << std::endl;
     std::pair<int, int> b_TransitionSymbol_pair =
         b_Alphabet_.decode(b_Transition_->first);
+    std::wcerr << L"b_TransitionSymbol_pair = {first = "
+               << b_TransitionSymbol_pair.first << L", second = "
+               << b_TransitionSymbol_pair.second << L"}" << std::endl;
 
     if (isEpsilon(b_TransitionSymbol_pair.first, b_Alphabet_)) {
+      std::wcerr <<
+"      std::pair<int, std::vector<int> > b_Target_(b_Transition_->second," << std::endl <<
+"                                                  b_Source_.second);" << std::endl;
       std::pair<int, std::vector<int> > b_Target_(b_Transition_->second,
                                                   b_Source_.second);
+      std::wcerr << L"b_Target_ = {first = " << b_Target_.first << L", second = {";
+      if (!b_Target_.second.empty()) {
+        std::vector<int>::const_iterator i_ = b_Target_.second.begin();
+        std::wcerr << *i_;
+        for (++i_; i_ != b_Target_.second.end(); ++i_) {
+          std::wcerr << L", " << *i_;
+        }
+      }
+      std::wcerr << L"}}" << std::endl;
 
       // To-do: follow Epsilon loopback transitions with non-Epsilon second
       // symbols for the number of such second symbols following the state in
@@ -1348,9 +1530,20 @@ void diff(Transducer &diff_, const int &a_first_Symbol, const Transducer &b_,
         // Try the next state.
         continue;
 
-      if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
+      if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_)) {
+        std::wcerr <<
+"        b_Target_.second.push_back(b_TransitionSymbol_pair.second);" << std::endl;
         b_Target_.second.push_back(b_TransitionSymbol_pair.second);
-      else
+        std::wcerr << L"b_Target_ = {first = " << b_Target_.first << L", second = {";
+        if (!b_Target_.second.empty()) {
+          std::vector<int>::const_iterator i_ = b_Target_.second.begin();
+          std::wcerr << *i_;
+          for (++i_; i_ != b_Target_.second.end(); ++i_) {
+            std::wcerr << L", " << *i_;
+          }
+        }
+        std::wcerr << L"}}" << std::endl;
+      } else
         // following double-Epsilon loopback transitions is infinite recursion
         // with no change per iteration—don’t do it.
         if (b_Transition_->second == b_Source_.first)
@@ -1358,16 +1551,49 @@ void diff(Transducer &diff_, const int &a_first_Symbol, const Transducer &b_,
           // Try the next state.
           continue;
 
+      std::wcerr <<
+          "diff[2] -> diff[2]" << std::endl <<
+"      diff(diff_, a_first_Symbol, b_, b_Alphabet_, b_Target_," << std::endl <<
+"           b_Target_multimap);" << std::endl;
       diff(diff_, a_first_Symbol, b_, b_Alphabet_, b_Target_,
            b_Target_multimap);
     } else {
       if (b_TransitionSymbol_pair.first == a_first_Symbol) {
+        std::wcerr <<
+"        std::multimap<int, std::vector<int> >::iterator b_Target_ =" << std::endl <<
+"            b_Target_multimap.insert(" << std::endl <<
+"                std::make_pair(b_Transition_->second, b_Source_.second));" << std::endl;
         std::multimap<int, std::vector<int> >::iterator b_Target_ =
             b_Target_multimap.insert(
                 std::make_pair(b_Transition_->second, b_Source_.second));
+        std::wcerr << L"b_Target_multimap = {" << std::endl;
+        for (std::multimap<int, std::vector<int> >::const_iterator i_ = b_Target_multimap.begin(); i_ != b_Target_multimap.end(); ++i_) {
+          std::wcerr << L"  [" << i_->first << L"] = {";
+          if (!i_->second.empty()) {
+            std::vector<int>::const_iterator j_ = i_->second.begin();
+            std::wcerr << *j_;
+            for (++j_; j_ != i_->second.end(); ++j_) {
+              std::wcerr << L", " << *j_;
+            }
+          }
+          std::wcerr << L"}" << std::endl;
+        }
+        std::wcerr << L"}" << std::endl;
 
-        if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_))
+        if (!isEpsilon(b_TransitionSymbol_pair.second, b_Alphabet_)) {
+          std::wcerr <<
+"          b_Target_->second.push_back(b_TransitionSymbol_pair.second);" << std::endl;
           b_Target_->second.push_back(b_TransitionSymbol_pair.second);
+          std::wcerr << L"*b_Target_ = {first = " << b_Target_->first << L", second = {";
+          if (!b_Target_->second.empty()) {
+            std::vector<int>::const_iterator i_ = b_Target_->second.begin();
+            std::wcerr << *i_;
+            for (++i_; i_ != b_Target_->second.end(); ++i_) {
+              std::wcerr << L", " << *i_;
+            }
+          }
+          std::wcerr << L"}}" << std::endl;
+        }
       }
     }
   }
