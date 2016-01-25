@@ -360,6 +360,10 @@ public:
               const std::vector<int> &first_Symbol_vector,
               const std::vector<int> &second_Symbol_vector);
 
+  void appendNode(std::vector<int> a_first_Symbol_vector, const int &a_State,
+                  const Transducer &a_, Alphabet &a_Alphabet_,
+                  std::vector<int> a_second_Symbol_vector);
+
   friend void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
                    const Transducer &a_, Alphabet &a_Alphabet_,
                    const int &a_State, std::vector<int> a_second_Symbol_vector,

@@ -1266,6 +1266,43 @@ void Transducer::insert(Alphabet &Alphabet_,
   minimize();
 }
 
+void Transducer::appendNode(std::vector<int> a_first_Symbol_vector,
+                            const int &a_State, const Transducer &a_,
+                            Alphabet &a_Alphabet_,
+                            std::vector<int> a_second_Symbol_vector) {
+  if (a_.isFinal(a_State)) {
+    insert(a_Alphabet_, a_first_Symbol_vector, a_second_Symbol_vector);
+    return;
+  }
+
+  for (std::multimap<int, int>::const_iterator a_Transition_ =
+           a_.transitions.at(a_State).begin();
+       a_Transition_ != a_.transitions.at(a_State).end(); ++a_Transition_) {
+
+    // following Epsilon loopback transitions is infinite recursion—don’t do
+    // it.
+    if (a_Transition_->second == a_State)
+
+      // Try the next state.
+      continue;
+
+    std::pair<int, int> a_TransitionSymbol_pair =
+        a_Alphabet_.decode(a_Transition_->first);
+
+    if (!isEpsilon(a_TransitionSymbol_pair.first, a_Alphabet_))
+      a_first_Symbol_vector.push_back(a_TransitionSymbol_pair.first);
+
+    if (!isEpsilon(a_TransitionSymbol_pair.second, a_Alphabet_))
+      a_second_Symbol_vector.push_back(a_TransitionSymbol_pair.second);
+
+    this->appendNode(a_first_Symbol_vector, a_Transition_->second, a_,
+                     a_Alphabet_, a_second_Symbol_vector);
+
+    a_first_Symbol_vector.pop_back();
+    a_second_Symbol_vector.pop_back();
+  }
+}
+
 void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
           const Transducer &a_, Alphabet &a_Alphabet_, const int &a_State,
           std::vector<int> a_second_Symbol_vector, const Transducer &b_,
@@ -1388,12 +1425,6 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
     std::wcerr <<
 "    std::pair<int, int> a_TransitionSymbol_pair =" << std::endl <<
 "        a_Alphabet_.decode(a_Transition_->first);" << std::endl;
-    std::pair<int, int> a_TransitionSymbol_pair =
-        a_Alphabet_.decode(a_Transition_->first);
-    std::wcerr << L"a_TransitionSymbol_pair = {first = "
-               << a_TransitionSymbol_pair.first << L", second = "
-               << a_TransitionSymbol_pair.second << L"}" << std::endl;
-    std::multimap<int, std::vector<int> > b_Target_multimap;
 
     // following Epsilon loopback transitions is infinite recursion—don’t do
     // it.
@@ -1401,6 +1432,13 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
 
       // Try the next state.
       continue;
+
+    std::pair<int, int> a_TransitionSymbol_pair =
+        a_Alphabet_.decode(a_Transition_->first);
+    std::wcerr << L"a_TransitionSymbol_pair = {first = "
+               << a_TransitionSymbol_pair.first << L", second = "
+               << a_TransitionSymbol_pair.second << L"}" << std::endl;
+    std::multimap<int, std::vector<int> > b_Target_multimap;
 
     if (!isEpsilon(a_TransitionSymbol_pair.second, a_Alphabet_)) {
       std::wcerr <<
@@ -1525,8 +1563,8 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
       }
 
       if (b_Target_multimap.empty())
-        diff_.insert(a_Alphabet_, a_first_Symbol_vector,
-                     a_second_Symbol_vector);
+        diff_.appendNode(a_first_Symbol_vector, a_Transition_->second, a_,
+                         a_Alphabet_, a_second_Symbol_vector);
     }
 
     std::wcerr << L"diff[1] -> diff[1]" << std::endl <<
@@ -1538,13 +1576,13 @@ void diff(Transducer &diff_, std::vector<int> a_first_Symbol_vector,
     std::wcerr <<
 "    a_first_Symbol_vector.pop_back();" << std::endl;
     a_first_Symbol_vector.pop_back();
-    std::wcerr << L"a_second_Symbol_vector = {";
+    std::wcerr << L"a_first_Symbol_vector = {";
 
-    if (!a_second_Symbol_vector.empty()) {
-      std::vector<int>::const_iterator i_ = a_second_Symbol_vector.begin();
+    if (!a_first_Symbol_vector.empty()) {
+      std::vector<int>::const_iterator i_ = a_first_Symbol_vector.begin();
       std::wcerr << *i_;
 
-      for (++i_; i_ != a_second_Symbol_vector.end(); ++i_) {
+      for (++i_; i_ != a_first_Symbol_vector.end(); ++i_) {
         std::wcerr << L", " << *i_;
       }
     }
